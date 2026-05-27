@@ -1,130 +1,127 @@
 ---
 name: exp-help
-description: Show inline cheatsheet for the research-infra /exp-* skill suite — when to use which skill, common flows, troubleshooting. Use whenever the user asks how the experiment-tracking system works, or which command to use for X.
+description: Show inline cheatsheet for the research-infra /exp-* skill suite — when to use which skill, common flows, troubleshooting. Use whenever the user asks how the system works, which skill to use for X, or "I forgot how to use this".
 allowed-tools: Read
 ---
 
 # exp-help — research-infra cheatsheet
 
-When invoked, print the following block VERBATIM (don't paraphrase, the user wants the reference card):
+When invoked, print the following block VERBATIM (don't paraphrase — user wants the reference card):
 
 ```
-==============================================================================
+================================================================================
   research-infra — Claude Code skills for DAG-style experiment tracking
-==============================================================================
+  Full guide: ~/research-infra/USAGE.md   |   In Claude Code: /exp-help anytime
+================================================================================
 
 ONE-TIME PER PROJECT
-  /exp-init                 Bootstrap experiments/ vault (nested git repo)
-  /exp-publish              Wire vault → GitHub auto-sync (gh CLI required)
+  /exp-init                    Bootstrap experiments/ vault (nested git repo)
+  /exp-publish                 Create GitHub vault repo + auto-push hook (needs gh)
 
 CREATE NODES
-  /exp-new "<hypothesis>" [--slug=...] [--with-branch]
-      → ROOT node (no parent). Use for new research thread.
-  /exp-branch "<hypothesis>" [--parent=<id>] [--slug=...] [--with-branch]
-      → CHILD of current node (or --parent). Use to extend/ablate an existing
-        experiment.
-  /exp-attach <node-id> [--from=<base>]
-      → Promote a status=idea node to active by creating its git branch.
+  /exp-new "<hyp>" [--slug=...] [--with-branch] [--from=<base>]
+                               → ROOT node (no parent). New research thread.
+  /exp-branch "<hyp>" [--parent=<id>] [--slug=...] [--with-branch]
+                               → CHILD of current node (or --parent).
+  /exp-attach <id>             → Promote idea → active by creating its git branch.
 
 WORK ON A NODE
-  git checkout exp/<id>-<slug>     # jump to that experiment's code branch
-  ... edit code, run training/eval ...
-  /exp-record k1=v1 k2=v2          # write Method/Results/Conclusion + metrics
-                                   # → status becomes "completed"
+  git checkout exp/<id>-<slug> → jump to that experiment's code
+  ... edit, train, eval ...
+  /exp-record                  → AUTO mode: scans logs/json/wandb, extracts metrics,
+                                 drafts Method from git diff parent..HEAD,
+                                 drafts Conclusion from metric deltas, shows Preview.
+  /exp-record acc=0.9 loss=...  → explicit metrics mode
+  /exp-record --ask             → strict ask-field-by-field
 
 EXPLORE THE GRAPH
-  /exp-status [node-id]            # 1-node neighborhood (current + parents + siblings)
-  /exp-traverse [flags]            # whole-DAG traversal in any direction:
-                                   #   default       = full tree from all roots
-                                   #   --from=X      = subtree under X (down)
-                                   #   --direction=up        = ancestors of X
-                                   #   --direction=both      = lineage + descendants
-                                   #   --direction=siblings  = same-parent peers
-                                   #   --direction=neighborhood
-                                   #   --direction=path --to=Y  = shortest path X↔Y
-                                   #   --direction=orphans   = open threads
-  /exp-plan [k=3] [--node=<id>]    # propose k candidate next hypotheses;
-                                   # user picks one to promote → /exp-branch
-  /exp-compare <a-id> <b-id>       # side-by-side metrics + git diff branches
-  /exp-link <a-id> <b-id> <rel>    # extends | contradicts | replicates
+  /exp-status [<id>]           → 1-node neighborhood (current + parents + siblings)
+  /exp-traverse [flags]        → WHOLE-DAG traversal in any direction:
+                                   (default)                 = full tree from roots
+                                   --from=X                  = subtree under X (down)
+                                   --from=X --direction=up   = ancestor chain X→root
+                                   --direction=both          = lineage + descendants
+                                   --direction=siblings      = same-parent peers
+                                   --direction=neighborhood  = parents+sibs+kids
+                                   --from=X --to=Y --direction=path  = shortest path
+                                   --direction=orphans       = open active/idea leaves
+                                 + --filter=open|pass|fail, --depth=N, --format=tree|yaml
 
-==============================================================================
+PLAN + ANNOTATE
+  /exp-plan [k=3] [--node=<id>] → draft k candidate child hypotheses, you pick one to promote
+  /exp-link <a> <b> <rel>      → cross-edge: extends | contradicts | replicates
+  /exp-compare <a> <b>         → side-by-side metrics + git diff branches
+
+ANY SKILL
+  --dry-run                    → preview only, never execute (force-confirm Layer 3)
+
+================================================================================
 COMMON FLOWS
-==============================================================================
+================================================================================
 
-A) START A NEW THREAD
+A) START A PROJECT
    /exp-init
-   /exp-new "<root hypothesis>" --slug=baseline --with-branch
+   /exp-publish                                                # GitHub sync
+   /exp-new "<hyp>" --slug=baseline --with-branch
    ... train ...
-   /exp-record acc=0.87 loss=0.42
+   /exp-record                                                 # AUTO
 
-B) ABLATION FROM AN EXISTING NODE
-   git checkout exp/<parent-id>-<parent-slug>
-   /exp-branch "<child hypothesis>" --slug=ablation-X --with-branch
-   ... train ...
-   /exp-record acc=0.84 loss=0.51
+B) ABLATION FROM EXISTING
+   git checkout exp/<parent-id>-<slug>
+   /exp-branch "<hyp>" --slug=ablate-X --with-branch
+   /exp-record
 
-C) BRAINSTORM BEFORE COMMITTING
-   /exp-plan k=3                   # see 3 candidate directions, pick 1
+C) BRAINSTORM
+   /exp-plan k=3                                               # pick 1 to promote
 
-D) IDEA-ONLY NODE (no code yet)
-   /exp-new "<vague idea>" --slug=brainstorm-foo    # no --with-branch
-   ... decide later it's worth pursuing ...
-   /exp-attach <id>                # creates branch + flips status to active
+D) IDEA-ONLY
+   /exp-new "<vague>" --slug=brainstorm-foo                    # no --with-branch
+   /exp-attach <id>                                            # later when ready
 
-E) FIND RELATIONSHIPS BETWEEN SIBLINGS
-   /exp-compare <a> <b>            # see metric deltas, file diff
-   /exp-link <a> <b> contradicts   # record finding
+E) CROSS-LINK
+   /exp-compare <a> <b>
+   /exp-link <a> <b> contradicts
 
-==============================================================================
-NODE FILE LAYOUT
-==============================================================================
+F) FORGOT WHERE I AM
+   /exp-status                                                 # 1-node view
+   /exp-traverse --direction=orphans                           # what's open
+   /exp-traverse                                               # full DAG
 
-experiments/nodes/YYYY-MM-<id>-<slug>.md  (one per experiment)
-
-  ---
-  id: <6 char>
-  slug: <kebab>
-  status: idea | active | completed | archived
-  hypothesis: ...
-  parents:  [ "[[<parent-wiki>]]" ]
-  links:    [ {to: "[[...]]", relation: extends|contradicts|replicates} ]
-  github-branch: exp/<id>-<slug>  | null
-  metrics: { ... }
-  ---
-
-  ## Hypothesis / Parents / Method / Results / Plots / Conclusion / Next directions
-
-==============================================================================
+================================================================================
 WHERE THINGS LIVE
-==============================================================================
+================================================================================
 
-PROJECT REPO  (your code, your branches)
-  <repo>/.git                          ← outer git repo, branches exp/<id>-<slug>
-  <repo>/.gitignore                    ← gitignores experiments/
-  <repo>/experiments/                  ← VAULT (nested git repo)
-    .git/                              ← vault's own history (1 commit / op)
-    nodes/YYYY-MM-<id>-<slug>.md       ← experiment notes
-    attachments/                        ← plots, csv, screenshots
-    INDEX.md                           ← auto-maintained root list
+YOUR PROJECT
+  <project>/.git                       outer code repo, branches exp/<id>-<slug>
+  <project>/.gitignore                 ignores experiments/
+  <project>/CLAUDE.md                  (recommended) drop-in pin for stricter HITL
+  <project>/experiments/.git           VAULT — nested git repo
+  <project>/experiments/nodes/         1 markdown file per experiment
 
-SKILLS (installed by install.sh)
-  ~/.claude/skills/exp-*               ← symlinks → <repo>/skills/exp-*/SKILL.md
-  ~/.claude/skills/_shared/lib.sh      ← shared bash helpers
-  ~/.claude/skills/_shared/fm.py       ← YAML frontmatter helper
+TOOL (installed by install.sh)
+  ~/research-infra/skills/             source of truth
+  ~/.claude/skills/exp-*               symlinks Claude Code reads
 
-==============================================================================
+LAPTOP (after /exp-publish)
+  ~/vaults/<project>/                  git clone of vault repo, opened in Obsidian
+
+================================================================================
 TROUBLESHOOTING
-==============================================================================
+================================================================================
 
-"no vault found"             → run /exp-init in your project root
-"PyYAML required"            → python3 -m pip install --user pyyaml
-"not on an exp/ branch"      → git checkout exp/<id>-<slug>  OR  pass --node=<id>
-Obsidian doesn't see vault   → the folder is "experiments/" (not dot-prefixed
-                               by default). Open Obsidian → "Open folder as vault"
-                               → point at <repo>/experiments/
+"no vault found"               → /exp-init in your project root
+"PyYAML required"              → python3 -m pip install --user pyyaml
+"not on an exp/ branch"        → git checkout exp/<id>-<slug>  or  --node=<id>
+"gh: command not found"        → brew install gh && gh auth login
+Obsidian shows empty           → open <project>/experiments/ as vault; Cmd+R reload
+Claude executed without preview → copy ~/research-infra/CLAUDE.md.template into project root
 
-Want full docs:  see README.md or https://github.com/triquang26/research-infra
+================================================================================
+Full guide:   ~/research-infra/USAGE.md
+Architecture: ~/research-infra/docs/ARCHITECTURE.md
+Sync setup:   ~/research-infra/docs/SYNC.md
+Case study:   ~/research-infra/docs/CASE-STUDY-ctrl-world.md
+================================================================================
 ```
 
-After printing, ask: "What would you like to do next? (or just type a /exp-* command)".
+After printing, ask: "Cần làm gì? (or just type a /exp-* command)".

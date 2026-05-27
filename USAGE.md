@@ -1,201 +1,240 @@
-# USAGE — driving guide
+# USAGE — daily driving guide
 
-> **You cloned this repo and forgot how to use it.** Read this file end-to-end (~5 min) and you'll be productive again.
+> **You cloned `research-infra`, ran `./install.sh`, and forgot how to use it.** Read this file (5 min) and you're back in business.
 >
-> Prereq: ran `./install.sh` once. Skills are at `~/.claude/skills/exp-*` (symlinks into this repo).
+> Prereqs: `./install.sh` ran successfully. Skills live at `~/.claude/skills/exp-*` (symlinked to this repo). You're in a code repo + Claude Code is open.
 
 ---
 
 ## 30-second mental model
 
-- Each **experiment** = one markdown node in `<project>/experiments/nodes/`.
-- Each **active experiment** = one git branch `exp/<id>-<slug>` in your code repo.
-- **Vault** (`experiments/`) is a nested git repo (its own history, single source of truth).
-- Every state-changing skill follows: **Inspect → Preview → Confirm → Execute**. Never executes without your `y`.
+- 1 **experiment** = 1 markdown node (file in `<project>/experiments/nodes/`)
+- 1 **active experiment** = 1 git branch `exp/<id>-<slug>` in your code repo
+- **Vault** (`experiments/`) is a nested git repo — its own history, single source of truth across all your code branches
+- Every state-changing skill = **Inspect → Preview → Confirm → Execute**. Never runs without your `y`.
 
 ---
 
-## TL;DR — the 5 commands you'll actually type
+## TL;DR — 6 commands you'll actually type
 
 ```
-/exp-init                                          # once per project
-/exp-publish                                       # once: wire vault → GitHub auto-sync
-/exp-new "<hyp>" --slug=... --with-branch          # new root
-/exp-branch "<hyp>" --slug=... --with-branch       # new child of current
-/exp-record k=v k=v                                # ghi kết quả vào current
-/exp-status                                        # mình đang ở đâu trong DAG?
-/exp-help                                          # full cheatsheet
+/exp-init                                            # ONCE per project: bootstrap vault
+/exp-publish                                         # ONCE per project: wire GitHub auto-sync
+/exp-new "<hyp>" --slug=... --with-branch            # new root experiment
+/exp-branch "<hyp>" --slug=... --with-branch         # new child of current node
+/exp-record                                          # auto-detect metrics + draft Method/Conclusion
+/exp-traverse                                        # see the whole DAG
 ```
 
-90% of daily use is just these.
+If you forget anything, type `/exp-help` in Claude Code → cheatsheet inline.
 
 ---
 
-## 3 prompting styles (worked example: "10 cam + skiplag")
+## How to prompt Claude (3 styles)
 
-You're in `~/ctrl-world` on branch `exp/a87147-ctrl-world-reproduce` and want to fork a child experiment.
+Worked example: you're on branch `exp/a87147-baseline` and want to test "use 10 cameras with skiplag".
 
-### Style 1 — slash command (most precise, Claude doesn't have to guess)
+### Style 1 — slash command (most precise)
 
 ```
-/exp-branch "Dùng 10 cam thay 3, áp dụng skiplag để giảm latency" --slug=10cam-skiplag --with-branch
+/exp-branch "Dùng 10 cam + skiplag" --slug=10cam-skiplag --with-branch
 ```
 
-### Style 2 — natural language with keywords (Claude auto-invokes the skill)
+### Style 2 — natural language with skill keywords (Claude auto-invokes)
 
 ```
 Tạo experiment con từ node hiện tại, hypothesis "dùng 10 cam + skiplag",
-slug 10cam-skiplag, kèm git branch luôn
+slug 10cam-skiplag, kèm branch
 ```
 
-Keywords `experiment`, `hypothesis`, `branch` make Claude pick `/exp-branch`.
+Keywords `experiment / hypothesis / branch` make Claude pick `/exp-branch`.
 
-### Style 3 — vague (Claude asks back)
+### Style 3 — vague (Claude asks back, then confirms)
 
 ```
-Tôi muốn thử dùng 10 cam với skiplag
+Thử 10 cam với skiplag
 ```
 
-→ Claude responds with:
-> Tạo child node từ current `a87147` hay root mới? Slug đề xuất `10cam-skiplag`, OK? `--with-branch`?
+Claude responds: "Tạo child node từ current `a87147`? Slug `10cam-skiplag`? `--with-branch`?". You answer, Claude proceeds.
 
-You answer, then Claude proceeds with the standard Preview → Confirm flow.
-
-**All three end at the same Preview step before any write.**
+**All 3 end at the same Preview step before any write.**
 
 ---
 
-## What info you provide for each skill
+## Info each skill needs
+
+What you must give vs what Claude auto-detects from context.
 
 | Skill | You must give | Optional | Auto-detected |
 |---|---|---|---|
 | `/exp-init` | (nothing) | — | repo root, `origin` URL, git user.email/name |
-| `/exp-publish` | (nothing) | `--name=<repo>`, `--public`, `--org=<org>` | project name, gh user, default repo `<project>-vault` |
-| `/exp-new` | hypothesis | `--slug=<slug>`, `--with-branch`, `--from=<base>` | id, slug (proposed), `github-repo` |
-| `/exp-attach <id>` | node id | `--from=<base>` | slug, github-repo backfill |
-| `/exp-branch` | hypothesis | `--parent=<id>`, `--slug`, `--with-branch` | parent from current branch, parent's branch |
-| `/exp-record` | metric `k=v` and/or text for Method/Conclusion | `--method=...`, `--conclusion=...`, `--node=<id>` | current node from git branch, commit SHA, date |
-| `/exp-status` | — | node id | current node, parents, siblings, children, links |
-| `/exp-traverse` | — | `--from=<id>`, `--to=<id>`, `--direction=down\|up\|both\|siblings\|neighborhood\|path\|orphans\|all`, `--depth=N`, `--filter=open\|pass\|fail`, `--format=tree\|yaml` | full DAG; auto-derives children, verdicts, cross-links |
-| `/exp-plan` | — | `k=3`, `--node=<id>` | ancestor context for drafting |
+| `/exp-publish` | (nothing) | `--name=<repo>`, `--public`, `--org=<org>` | gh user, default `<project>-vault`, private |
+| `/exp-new` | hypothesis | `--slug=<slug>`, `--with-branch`, `--from=<base>` | id (random), slug (proposed from hypothesis), `github-repo` |
+| `/exp-attach <id>` | node id | `--from=<base>` | slug, `github-repo` backfill |
+| `/exp-branch` | hypothesis | `--parent=<id>`, `--slug`, `--with-branch` | parent id (from current branch), parent's branch |
+| `/exp-record` | (nothing — AUTO mode default) | `k=v` pairs, `--method=...`, `--conclusion=...`, `--from=<file>`, `--ask` | scans `results.json`, `metrics.json`, `wandb-summary.json`, recent `*.log`, image files; drafts Method from git diff parent..HEAD; drafts Conclusion from metric deltas vs parent |
+| `/exp-status` | — | `<node-id>` | current node, parents, siblings, children, links |
+| `/exp-traverse` | — | `--from=<id>`, `--to=<id>`, `--direction=<d>`, `--depth=N`, `--filter=<f>`, `--format=<f>` | full DAG, verdicts, cross-links |
+| `/exp-plan` | — | `k=3`, `--node=<id>` | current node + 2 ancestors for context |
 | `/exp-link` | `<a-id> <b-id> <relation>` | — | wiki names |
-| `/exp-compare` | `<a-id> <b-id>` | — | metrics, branches, diff |
+| `/exp-compare` | `<a-id> <b-id>` | — | metrics, branches, git diff |
 | `/exp-help` | (nothing) | — | — |
+
+**Defaults worth remembering:**
+- No `--with-branch` → status is `idea`, no git branch. Use `/exp-attach <id>` later.
+- No `--slug=` → Claude proposes (you can edit at Preview).
+- No `--parent=` for `/exp-branch` → parent inferred from current git branch.
+- No `--node=` for `/exp-record`, `/exp-status` → current node from current git branch.
+- No args at all for `/exp-record` → AUTO mode (scan logs, draft everything, you confirm).
 
 **Relations** for `/exp-link`: `extends` | `contradicts` | `replicates`.
 
-**Defaults you should know:**
-- No `--with-branch` → status is `idea`, no git branch created. Use `/exp-attach <id>` later to promote.
-- No `--slug=` → Claude proposes from your hypothesis (you can edit at Preview step).
-- No `--parent=` for `/exp-branch` → parent is whatever node maps to your current git branch. If you're on `main`, skill fails — pass `--parent=` or `git checkout` an exp/ branch.
-- No `--node=` for `/exp-record`, `/exp-status`, `/exp-plan` → current node from git branch.
+**Directions** for `/exp-traverse`: `down` | `up` | `both` | `siblings` | `neighborhood` | `path` | `orphans` | `all`.
 
 ---
 
-## Force confirmation — 4 layers
+## Force confirm — 4 layers (use as many as you want)
 
-In order of strength (use as many as you want):
+| Layer | What it does | When to use |
+|---|---|---|
+| **1 — built-in HITL** | Every skill has Preview → Confirm step | always on, no config |
+| **2 — CLAUDE.md pin** | Drop `CLAUDE.md` into project root → Claude tightens behavior every session | recommended; 1 file copy |
+| **3 — `--dry-run` flag** | Skill stops after Preview, never executes | when nervous about a big op |
+| **4 — permission mode** | Claude asks per-tool-use permission | most aggressive, slows you down |
 
-### Layer 1 — built-in HITL (default, always on)
+### Layer 2 — drop the CLAUDE.md template into your project
 
-Every state-changing skill has a `Confirm? (y/n/...)` step before executing. Claude reads this from SKILL.md and pauses. ~95% reliable on its own.
-
-### Layer 2 — pin in CLAUDE.md (recommended)
-
-Copy `CLAUDE.md.template` from this repo into the root of your code project (`~/ctrl-world/CLAUDE.md`). Claude reads it every session and tightens behavior. Template:
-
-```markdown
-# Project rules — research-infra skills
-
-CRITICAL: Before invoking ANY /exp-* skill that writes to files or runs git ops:
-1. Print the full Preview block (file paths, branch ops, commit msg, frontmatter values).
-2. Wait for explicit user reply "y" / "ok" / "confirm".
-3. If user reply is unclear, ASK BACK (don't assume).
-4. Only proceed to Execute step after explicit confirmation.
-
-Never auto-execute /exp-new, /exp-branch, /exp-attach, /exp-record, /exp-link
-without showing the preview and getting a "y" first.
-
-The vault lives in experiments/ (nested git repo). All skills handle git +
-commit atomically; you don't need to git add/commit vault changes manually.
+```bash
+cp ~/research-infra/CLAUDE.md.template ~/my-project/CLAUDE.md
 ```
 
-A copy of this template is at `<repo-root>/CLAUDE.md.template` — `cp` it into any project.
+Template content (in `<repo>/CLAUDE.md.template`):
+- Tells Claude to ALWAYS print Preview block + wait for explicit `y/ok/confirm`
+- If user reply unclear → ASK BACK, don't assume
+- `--dry-run` → STOP after Preview no matter what user says next
+- Defaults vague user intent ("test X", "log Y") to invoking `/exp-*` skill instead of writing markdown inline
 
-### Layer 3 — `--dry-run` flag (preview-only, never execute)
+### Layer 3 — `--dry-run`
 
 ```
 /exp-branch "..." --slug=10cam-skiplag --with-branch --dry-run
 ```
 
-Forces Claude to STOP after Preview and report what *would* happen. Re-run without `--dry-run` to actually execute. Useful when you're nervous about a large commit-burning op.
+Claude shows Preview + reports "would create...", **never executes**. Re-run without `--dry-run` to actually do it.
 
-### Layer 4 — permission mode (most aggressive)
+### Layer 4 — permission mode
 
 Edit `~/.claude/settings.json`:
 ```json
 { "permissions": { "defaultMode": "default" } }
 ```
 
-Now Claude asks per-tool-use permission (every Bash, every Edit). Confirms everything but slows you down. Use when working on shared infra or testing new skills.
+Claude prompts for permission on every Bash / Edit / Write. Strictest. Use for shared infra.
 
 ---
 
-## Common patterns (copy-paste)
+## 10 common patterns (copy-paste)
 
 ### A. Start a new project
+
 ```bash
-cd ~/my-project                  # any git repo
+cd ~/my-project
 claude
 ```
 ```
 /exp-init
+/exp-publish                                              # if you want GitHub sync
 /exp-new "first hypothesis" --slug=baseline --with-branch
 ```
 
 ### B. Resume work next day
+
 ```bash
 cd ~/my-project
-git status                       # see what branch you're on
+git status                                                # see what branch you're on
 claude
 ```
 ```
-/exp-status                      # remind yourself of the neighborhood
+/exp-status                                               # current node neighborhood
+/exp-traverse --direction=orphans                         # what's still open
 ```
 
-### C. Ablation from current node
+### C. Branch an ablation from current node
+
 ```
 /exp-branch "drop layer norm" --slug=no-layernorm --with-branch
 ```
-Then edit code, train, eval.
+Edit code, train, eval.
 
-### D. Record results and move on
+### D. Record results (auto-detect — recommended)
+
 ```
-/exp-record acc=0.91 latency_ms=58
+/exp-record
 ```
-Claude fills Method/Results/Conclusion (asks for text or proposes from metrics).
+
+Claude scans for logs/json/wandb output, extracts metrics, drafts Method from git diff, drafts Conclusion from metric deltas vs parent. Shows full Preview. You `y`, `edit`, or `skip-field <name>`.
+
+### D'. Record results explicitly (manual)
+
+```
+/exp-record acc=0.91 latency_ms=58 --method="6L transformer" --conclusion="PASS, +0.04 acc"
+```
 
 ### E. Brainstorm 3 next directions
+
 ```
 /exp-plan k=3
 ```
-Claude drafts 3 candidates. Pick 1 → it auto-invokes `/exp-branch` with the chosen draft.
 
-### F. Cross-link findings
+Claude drafts 3 candidates (hypothesis + slug + est cost + why). Pick 1 → it auto-invokes `/exp-branch`. Unpicked drafts discarded.
+
+### F. Traverse the graph in any direction
+
 ```
-/exp-link a3b1c9 d4e5f7 contradicts
+/exp-traverse                                             # full DAG
+/exp-traverse --from=<id> --direction=up                  # lineage to root
+/exp-traverse --from=<id> --direction=down                # subtree
+/exp-traverse --from=<id> --direction=both                # ancestors + descendants
+/exp-traverse --from=<id> --direction=siblings            # same-parent peers
+/exp-traverse --from=<id> --direction=neighborhood        # parents+sibs+kids
+/exp-traverse --from=<a> --to=<b> --direction=path        # shortest a↔b
+/exp-traverse --direction=orphans                         # open threads
+/exp-traverse --filter=fail                               # mark FAIL nodes
 ```
 
-### G. Compare two siblings
+### G. Cross-link findings between distant nodes
+
 ```
-/exp-compare a3b1c9 d4e5f7
+/exp-link <a-id> <b-id> contradicts
 ```
 
-### H. Idea-only brainstorm (no code yet)
+Other relations: `extends`, `replicates`.
+
+### H. Compare two siblings to pick which to extend
+
+```
+/exp-compare <a-id> <b-id>
+```
+
+Side-by-side metrics table + `git diff exp/A...exp/B`.
+
+### I. Idea-only brainstorm (no code yet)
+
 ```
 /exp-new "wild idea I might try later" --slug=wild-idea
 # ... later, when ready:
-/exp-attach <id>                  # creates branch, status idea→active
+/exp-attach <id>                                          # creates branch, idea→active
+```
+
+### J. Look up a skill / forget how to use
+
+```
+/exp-help                                                 # inline cheatsheet
+```
+
+Or:
+```
+Đọc ~/research-infra/USAGE.md rồi tóm tắt cách dùng cho t
 ```
 
 ---
@@ -205,12 +244,12 @@ Claude drafts 3 candidates. Pick 1 → it auto-invokes `/exp-branch` with the ch
 The skill suite uses **current git branch → current node** as the mapping. To work on an existing experiment:
 
 ```bash
-git checkout exp/<id>-<slug>      # outer code repo
+git checkout exp/<id>-<slug>                              # outer code repo
 ```
 
-Now `/exp-record`, `/exp-status`, `/exp-branch` all default to this node.
+Now `/exp-record`, `/exp-status`, `/exp-branch` default to this node.
 
-To list all your experiment branches:
+List all your experiment branches:
 ```bash
 git branch | grep '^  exp/'
 ```
@@ -219,23 +258,34 @@ Or open Obsidian on the vault to navigate visually.
 
 ---
 
-## Where things live (quick map)
+## Where things live (file map)
 
 ```
-~/my-project/                          # outer code repo (your code)
-├── .git/                              # branches: main, exp/<id>-<slug>, ...
-├── .gitignore                         # includes: experiments/
-├── CLAUDE.md                          # (recommended) — see Layer 2
-├── src/...                            # your code
-└── experiments/                       # vault (nested git repo)
-    ├── .git/                          # vault's own history
-    ├── INDEX.md                       # auto-maintained root list
-    ├── nodes/
-    │   └── 2026-05-<id>-<slug>.md     # one experiment = one file
-    └── attachments/                   # plots, csv, screenshots
+~/research-infra/                                # the tool (clone once anywhere)
+├── README.md  USAGE.md  CLAUDE.md.template
+├── install.sh
+├── skills/_shared/{lib.sh, fm.py, node_template.md}
+└── skills/exp-{init,publish,new,attach,branch,record,
+              status,traverse,plan,link,compare,help}/SKILL.md
 
-~/.claude/skills/                      # symlinks → <this-repo>/skills/*
-~/research-infra/                      # this repo (skills source of truth)
+~/.claude/skills/                                # Claude Code reads skills here
+└── exp-*  →  symlinks  →  ~/research-infra/skills/exp-*
+
+~/my-project/                                    # YOUR code project
+├── .git/                                        # branches: main, exp/<id>-<slug>
+├── .gitignore                                   # includes: experiments/
+├── CLAUDE.md                                    # (recommended) — copy of template
+├── src/
+└── experiments/                                 # YOUR vault — nested git repo
+    ├── .git/                                    # vault's own history
+    ├── INDEX.md
+    ├── nodes/                                   # 1 file per experiment
+    │   └── 2026-05-<id>-<slug>.md
+    └── attachments/                             # plots, csv
+
+~/vaults/                                        # on LAPTOP: vault clones for Obsidian
+├── my-project/                                  # git clone of <project>-vault GitHub repo
+└── another-project/
 ```
 
 ---
@@ -247,19 +297,23 @@ Or open Obsidian on the vault to navigate visually.
 | `no vault found` | Run `/exp-init` in your project root |
 | `PyYAML required` | `python3 -m pip install --user pyyaml` |
 | `not on an exp/ branch` (record/status) | `git checkout exp/<id>-<slug>` or pass `--node=<id>` |
-| `branch X already exists` | Pick different slug or `git branch -d X` first |
-| `working tree has uncommitted changes` | Commit / stash code changes first |
-| Obsidian shows empty | Open `<project>/experiments/` as vault (Cmd+R refresh, Cmd+G for graph) |
+| `branch X already exists` | Pick a different slug, or `git branch -d X` first |
+| `working tree has uncommitted changes` | Commit/stash code changes first |
+| `/exp-record` finds nothing in auto mode | Pass `--from=<results.json>` or use explicit `k=v` |
+| Obsidian shows empty | Open `<project>/experiments/` as vault. `Cmd+R` reload. `Cmd+G` for graph. |
 | Vault commit: `user.email not set` | `git config --global user.email "..."` |
-| `github-repo: null` in old nodes | Run `/exp-attach <id>` to backfill, or set the field manually |
-| Claude executed without confirming | Add CLAUDE.md (Layer 2) and/or use `--dry-run` (Layer 3) |
+| `gh: command not found` (for /exp-publish) | `brew install gh && gh auth login` |
+| `github-repo: null` in old nodes | Run `/exp-attach <id>` to backfill |
+| Claude executed without confirming | Add CLAUDE.md (Layer 2) + use `--dry-run` (Layer 3) |
+| Outer branches list grows huge | `git branch | grep '^  exp/'` to filter, or `git branch -d` archived ones |
 
 ---
 
 ## What to read next
 
-- [`README.md`](README.md) — install, architecture overview, full use case list
+- [`README.md`](README.md) — install, architecture overview, end-to-end Ctrl-World tutorial
+- [`CLAUDE.md.template`](CLAUDE.md.template) — drop into project root for stricter HITL
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — why nested vault repo, design rationale
-- [`docs/SYNC.md`](docs/SYNC.md) — sync vault from server to laptop Obsidian
+- [`docs/SYNC.md`](docs/SYNC.md) — sync vault from server to laptop Obsidian (3 options)
 - [`docs/CASE-STUDY-ctrl-world.md`](docs/CASE-STUDY-ctrl-world.md) — worked example, 11 nodes, 5 hops
 - `/exp-help` — type in Claude Code anytime for inline cheatsheet

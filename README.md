@@ -1,21 +1,18 @@
 # research-infra
 
-> **Local, Obsidian-friendly DAG of experiments for Claude Code.**
-> Treat every hypothesis as a node, every git branch as the code for one node, and let Claude Code drive node creation / branching / record-keeping through atomic, human-in-the-loop skills.
->
-> Inspired by [Flywheel (Paradigma)](https://flywheel.paradigma.inc) — local-first, no cloud, no auto-research. Just structure + traversal.
+**A local DAG of experiments for Claude Code.** Each experiment is a markdown note + git branch. Claude Code handles the bookkeeping (create node, branch off, record results, traverse the graph) through human-in-the-loop skills.
+
+Built for ML researchers running experiments on SSH servers and wanting to **see their research as a graph in Obsidian** without learning a new tool. Inspired by [Flywheel (Paradigma)](https://flywheel.paradigma.inc) — same DAG mental model, local-first, no cloud, no auto-research.
 
 ---
 
 ## What you get
 
-- **9 Claude Code skills** (`/exp-init`, `/exp-new`, `/exp-branch`, `/exp-record`, `/exp-status`, `/exp-plan`, `/exp-link`, `/exp-attach`, `/exp-compare`) + `/exp-help`.
-- **Nested-git-repo vault** (`<repo>/experiments/`) — every node change is its own commit, never pollutes your code branches.
-- **Loose git coupling**: a node can be an *idea* (no branch) or *active* (branch `exp/<id>-<slug>` exists), and switching costs one command.
-- **Obsidian-friendly file layout**: each node is a markdown file with YAML frontmatter and wikilinks, so opening the vault in Obsidian gives you a graph view for free.
-- **Atomic + HITL** by design: every state-changing op previews exactly what it will do and waits for your `y` before touching disk or git.
-
-No cloud. No GPU provisioning. No npm. Python 3 + git only.
+- **12 Claude Code skills** that drive the whole workflow (`/exp-init`, `/exp-new`, `/exp-branch`, `/exp-record`, `/exp-status`, `/exp-traverse`, `/exp-plan`, `/exp-link`, `/exp-attach`, `/exp-compare`, `/exp-publish`, `/exp-help`).
+- **Nested-git-repo vault** at `<project>/experiments/` — every node change is its own commit, never pollutes your code branches.
+- **Obsidian-friendly markdown**: each node is one file with YAML frontmatter and wikilinks. Open the vault in Obsidian → graph view for free.
+- **Atomic + HITL** by design: every state-changing op previews exactly what it will do and waits for your `y` before touching disk.
+- **No npm/node**. Python 3 + git. Works on locked-down servers.
 
 ---
 
@@ -25,141 +22,102 @@ No cloud. No GPU provisioning. No npm. Python 3 + git only.
 curl -fsSL https://raw.githubusercontent.com/triquang26/research-infra/main/install.sh | bash
 ```
 
-This clones to `~/research-infra` and symlinks `skills/*` into `~/.claude/skills/`. After this:
+Clones to `~/research-infra`, symlinks `skills/*` into `~/.claude/skills/`. Idempotent.
 
-```
-~/research-infra/                        # the repo
-~/.claude/skills/exp-init   -> ~/research-infra/skills/exp-init
-~/.claude/skills/exp-new    -> ~/research-infra/skills/exp-new
-... (etc.)
-```
+Already cloned? `cd ~/research-infra && ./install.sh`.
 
-### Already cloned?
-
-```bash
-cd ~/research-infra
-./install.sh                             # idempotent — safe to re-run
-```
-
-### Server with read-only home, prefer copies over symlinks?
-
-```bash
-COPY_MODE=1 ./install.sh
-```
-
-### Custom location
-
-```bash
-RESEARCH_INFRA_DIR=/srv/tools/research-infra ./install.sh
-```
-
-### Dependencies
-
-The installer checks and auto-installs where it can:
-- `git` — required
-- `python3` — required
-- `PyYAML` — auto-installs via `pip install --user pyyaml` if missing
-- **No npm/node needed**
+Server with read-only home? `COPY_MODE=1 ./install.sh`.
 
 ---
 
-## 👉 Read this if you forgot how to use it
+## 👉 Forgot how to use it? Read [USAGE.md](USAGE.md)
 
-**[`USAGE.md`](USAGE.md)** — single-file driving guide: 5 commands you'll actually type, 3 prompting styles, 4 layers of force-confirm, copy-paste CLAUDE.md template, common patterns.
+That's the **daily driving guide** — TL;DR commands, prompting styles, force-confirm layers, common patterns, CLAUDE.md drop-in template.
 
-If you just cloned and need to start working: read `USAGE.md` (5 min) and you're done.
+Or in Claude Code, type:
+```
+/exp-help
+```
+
+…and you get the cheatsheet inline.
 
 ---
 
-## Quick start (3 commands → working vault)
+## 5-minute quickstart
 
 ```bash
-cd ~/my-research-project                 # any existing git repo
-claude                                   # start Claude Code
+cd ~/my-research-project       # any git repo
+claude                         # start Claude Code
+```
 
-# inside Claude Code, type:
-/exp-init
-/exp-new "Transformer 4L baseline >85% acc on dataset X" --slug=baseline-4l --with-branch
+Inside Claude Code:
+```
+/exp-init                                                # bootstrap vault (once per project)
+/exp-new "Transformer 4L baseline" --slug=baseline --with-branch
 # ... run training ...
-/exp-record acc=0.87 loss=0.42
+/exp-record                                              # auto-detects metrics from logs
 ```
 
-After this you have:
-- `experiments/nodes/2026-05-<id>-baseline-4l.md` with hypothesis + results
-- git branch `exp/<id>-baseline-4l` checked out
-- `experiments/.git/` recording every vault change
+That's it. You now have:
+- `experiments/nodes/2026-05-<id>-baseline.md` — node with hypothesis + results
+- git branch `exp/<id>-baseline` checked out
+- `experiments/.git/` — vault commit history
 
 Open `experiments/` in Obsidian → graph view shows your DAG.
 
 ---
 
-## Tutorial — End-to-end on a real paper repo (Ctrl-World example)
+## Tutorial — implement a paper end-to-end
 
-Concrete walkthrough: implementing the [Ctrl-World](https://github.com/Yanjiang-Guo/ctrl-world) paper on an SSH server, viewing the experiment DAG on your laptop in Obsidian. **Two GitHub repos** are involved: one for the code, one for the vault. This is the recommended setup.
+The full story: implement [Ctrl-World](https://github.com/Yanjiang-Guo/ctrl-world) on an SSH server, view the experiment DAG on your laptop in Obsidian. Two GitHub repos: one for code, one for vault.
 
 ### Why two repos?
 
-| Repo | Holds | Audience | Visibility |
-|---|---|---|---|
-| **Code** (e.g. `triquang26/ctrl-world`) | implementation, branches `exp/<id>-<slug>` | you / collaborators / upstream PRs | usually public |
-| **Vault** (e.g. `triquang26/ctrl-world-vault`) | DAG notes, hypotheses, results, links | you (+ maybe team) | usually private |
+| Repo | Holds | Audience |
+|---|---|---|
+| **Code** (`triquang26/ctrl-world`) | implementation, `exp/*` branches | you / collaborators / PR upstream |
+| **Vault** (`triquang26/ctrl-world-vault`) | DAG notes, hypotheses, results | you (private) |
 
-Separation means:
-- PRs back upstream don't leak your messy `experiments/` folder
-- Code reviewers see code diffs only
-- Vault can be private even when code is public
-- Vault commits (1 per skill op) don't bloat code branch history
+Separation: PRs back upstream don't leak your messy vault. Vault can be private even when code is public.
 
-### Step 1 — Server: fork the paper repo
+### Step 1 — fork the paper repo (server)
 
 ```bash
 ssh user@server
-gh repo fork Yanjiang-Guo/ctrl-world --clone=true     # creates triquang26/ctrl-world
+gh repo fork Yanjiang-Guo/ctrl-world --clone=true
 cd ctrl-world
 ```
 
-(If not using `gh`: `git clone <paper-url>` then push to a new GitHub repo you own.)
-
-### Step 2 — Server: install research-infra
+### Step 2 — install research-infra (once per server)
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/triquang26/research-infra/main/install.sh | bash
 ```
 
-### Step 3 — Server: bootstrap the vault
+### Step 3 — bootstrap vault
 
-```bash
-cd ~/ctrl-world           # still in the code repo
-claude                    # start Claude Code
+```
+claude
+> /exp-init
 ```
 
-Inside Claude Code:
-```
-/exp-init
-```
+Creates `experiments/` (nested git repo) + appends `experiments/` to outer `.gitignore`. **5 sec.**
 
-This creates:
-- `experiments/` (nested git repo with its own `.git/`)
-- Appends `experiments/` to outer `.gitignore` so code branches don't see vault changes
-- Commits the gitignore update on outer `main`
-
-### Step 4 — Server: publish vault to GitHub (one command)
+### Step 4 — publish vault to GitHub (one command)
 
 ```
 /exp-publish
 ```
 
-This does the GitHub setup + auto-push hook in one go:
-- Creates `triquang26/ctrl-world-vault` on GitHub (private by default)
-- Adds it as the vault's `origin` remote and pushes
-- Installs a post-commit hook so every subsequent `/exp-*` vault commit auto-pushes
+This single skill:
+- creates `triquang26/ctrl-world-vault` on GitHub (private by default — uses `gh` CLI)
+- adds it as the vault's remote and pushes
+- installs a post-commit hook so every future vault commit auto-pushes
 
-Requires `gh` CLI installed + authenticated (`gh auth status`). Override the repo name with `--name=foo`, make it public with `--public`, or target an org with `--org=myorg`.
-
-After this, every `/exp-new`, `/exp-branch`, `/exp-record`, `/exp-link` writes to the vault → vault commits → auto-pushed to GitHub. No more manual `git push` for vault changes.
+Now every `/exp-record` you do auto-syncs to GitHub. **30 sec.**
 
 <details>
-<summary>Manual equivalent (if you'd rather not use the skill)</summary>
+<summary>Without /exp-publish (manual)</summary>
 
 ```bash
 gh repo create triquang26/ctrl-world-vault --private --confirm
@@ -175,26 +133,23 @@ cd ..
 ```
 </details>
 
-### Step 5 — Server: start experimenting
+### Step 5 — first experiment
 
 ```
 /exp-new "Reproduce Ctrl-World on DROID 95k traj" --slug=baseline --with-branch
 ```
 
-Claude previews, you confirm. This:
-- Creates `experiments/nodes/2026-05-<id>-baseline.md`
-- Creates outer code branch `exp/<id>-baseline` from `main`, checks it out
-- Vault commit → auto-pushed to `ctrl-world-vault`
-- Outer branch has no commits yet (you haven't changed code)
+Claude shows Preview, you `y`, file + branch + commit created. Vault commit auto-pushes to GitHub.
 
-Now edit code on the server (`src/model.py`, etc.), train, eval, then:
+Now edit code (`src/model.py`, etc.), train, eval. When done:
+
 ```
-/exp-record coherent_seconds=18.5 policy_uplift_pct=41.2
+/exp-record
 ```
 
-Method / Results / Conclusion get filled (you write or let Claude propose), status flips to `completed`. Vault commit → auto-pushed.
+(No args = AUTO mode.) Claude scans for `results.json` / `metrics.json` / `*.log` / `wandb-summary.json` in your project, extracts metrics, drafts Method from `git diff parent..HEAD`, drafts Conclusion from metric deltas vs parent. Shows everything in a single Preview. You `y` or `edit`.
 
-### Step 6 — Server: push code branches when ready (manual)
+### Step 6 — push code branch (manual)
 
 ```bash
 git add src/...
@@ -202,334 +157,99 @@ git commit -m "exp(<id>): baseline implementation"
 git push origin exp/<id>-baseline
 ```
 
-Code branches push **manually** — different cadence from vault.
+Code branches push **manually** (different cadence from vault).
 
-### Step 7 — Server: branch an ablation
+### Step 7 — branch an ablation
 
-```bash
-git checkout exp/<id>-baseline   # already there, just being explicit
-```
 ```
 /exp-branch "Drop memory retrieval (k=0)" --slug=ablate-memory-k0 --with-branch
 ```
 
-Claude reads current node, creates child node, creates branch `exp/<child-id>-ablate-memory-k0` forked from `exp/<id>-baseline`, checks it out. Vault commit → auto-pushed.
+Child node, new branch from parent's branch, vault commit auto-pushed.
 
-### Step 8 — Laptop: clone vault, open in Obsidian
+### Step 8 — laptop: clone vault, open in Obsidian
 
 ```bash
 git clone git@github.com:triquang26/ctrl-world-vault.git ~/vaults/ctrl-world
 open -a Obsidian ~/vaults/ctrl-world
 ```
 
-Refresh manually with `git pull`, or wire a 30-second LaunchAgent (template in [`docs/SYNC.md`](docs/SYNC.md#option-a--vault-has-its-own-github-repo-recommended)).
+Refresh: `git pull` (or wire a 30 s LaunchAgent — see [docs/SYNC.md](docs/SYNC.md)).
 
-### Step 9 — Laptop: optionally clone code for review
-
-```bash
-git clone git@github.com:triquang26/ctrl-world.git ~/code/ctrl-world
-git -C ~/code/ctrl-world checkout exp/<id>-baseline   # see the experiment's code
-```
-
-Vault on laptop shows what / why / results. Code repo shows how. PR to upstream paper repo from `main` of your fork — vault never leaks.
-
-### The picture
+### Step 9 — explore the DAG (anytime)
 
 ```
-SERVER ──────────────────────► GITHUB ◄─────────── LAPTOP
-
-~/ctrl-world/                  triquang26/ctrl-world          ~/code/ctrl-world/  (optional)
-├── .git/  ─── push exp/* ──►    main                          for code review
-├── .gitignore  experiments/     exp/abc123-baseline
-├── src/                         exp/def456-ablate-memory-k0
-└── experiments/  ── auto ──►  triquang26/ctrl-world-vault    ~/vaults/ctrl-world/
-    ├── .git/   post-commit       main (all vault commits)     git pull every 30s
-    ├── nodes/                                                  open -a Obsidian
-    └── INDEX.md
+/exp-traverse                          # full DAG
+/exp-traverse --direction=orphans      # open threads (need follow-up)
+/exp-traverse --from=<id> --direction=up   # lineage to root
 ```
 
-| Action | Code repo (`ctrl-world`) | Vault repo (`ctrl-world-vault`) |
-|---|---|---|
-| Branches | `main` + `exp/<id>-<slug>` | `main` only |
-| Push | manual (`git push origin exp/...`) | auto via post-commit hook |
-| Files | source code | markdown nodes + INDEX |
-| Audience | you / collaborators / PR upstream | you (+ team) |
-| View | IDE / `gh pr view` | Obsidian on laptop |
-
-### Want a single repo instead?
-
-You can — drop the nested-git approach and let vault files live on whichever code branch you're on. Trade-off: `/exp-link` and `/exp-compare` across branches will fail (file not visible). See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md#why-nested-git-for-the-vault) for why we chose nested. For solo projects with no cross-branch linking, single-repo can work — but you'll have to modify the skills.
+→ See [Step-by-step worked example with 11 nodes](docs/CASE-STUDY-ctrl-world.md).
 
 ---
 
-## Use cases (copy-paste ready)
-
-### Use case 1 — Start a brand-new research thread
+## Architecture in 1 minute
 
 ```
-/exp-init                                                 # once per project
-/exp-new "My first hypothesis" --slug=baseline --with-branch
+my-project/                            # outer code repo
+├── .git/                              # branches: main, exp/<id>-<slug>, ...
+├── .gitignore                         # includes: experiments/
+├── src/                               # your code
+└── experiments/                       # VAULT — nested git repo
+    ├── .git/                          # vault's own commit history
+    ├── nodes/                         # 1 markdown file per experiment
+    ├── attachments/                   # plots, csv, screenshots
+    └── INDEX.md                       # auto-maintained root list
 ```
 
-Claude previews exactly what will be created, you confirm, vault + git branch ready.
+3 key design decisions:
 
----
+1. **Vault is a nested git repo.** Otherwise vault files would diverge per code branch, and cross-node ops (`/exp-link`, `/exp-compare`) would fail. Nested = single source of truth.
+2. **Loose git coupling.** A node can be `idea` (no branch yet) or `active` (branch exists). Brainstorm cheaply with `/exp-new --idea`, promote later with `/exp-attach`.
+3. **4-step skill discipline.** Every state-changing op: **Inspect → Preview → Confirm → Execute atomic**. Claude shows the diff before touching disk. No surprises.
 
-### Use case 2 — Run an ablation on an existing node
+Code ↔ node mapping: branch `exp/<id>-<slug>` ⇔ node file `YYYY-MM-<id>-<slug>.md` ⇔ wikilink `[[YYYY-MM-<id>-<slug>]]`. Knowing any one, you derive the others.
 
-```bash
-git checkout exp/<parent-id>-<parent-slug>                # jump to parent code
-```
-```
-/exp-branch "Drop layer norm — expect speedup at acc cost" --slug=no-layernorm --with-branch
-```
-
-Child node created with `parents: [[<parent-wiki>]]`. New git branch from parent's branch.
-
-After training:
-```
-/exp-record acc=0.83 latency_ms=22
-```
-
-→ Method/Results/Conclusion sections filled (you type or let Claude propose), status → `completed`, commit.
-
----
-
-### Use case 3 — Brainstorm without committing compute
-
-```
-/exp-plan k=3
-```
-
-Claude reads the current node + 2 ancestors, drafts 3 candidate next-step hypotheses (each with: hypothesis, slug, estimated cost, why). You pick 1 → it auto-invokes `/exp-branch` with the chosen draft. Discarded drafts are *not* saved.
-
----
-
-### Use case 4 — "I have an idea but no time to code it yet"
-
-```
-/exp-new "Try mamba SSM instead of transformer" --slug=mamba-idea
-```
-
-No `--with-branch` → status `idea`, no git branch created. Sits in vault as a note.
-
-Later, when you're ready:
-```
-/exp-attach <id>
-```
-
-→ Creates `exp/<id>-mamba-idea`, status flips to `active`, you start coding.
-
----
-
-### Use case 5 — Compare two competing branches
-
-```
-/exp-compare <node-a-id> <node-b-id>
-```
-
-Side-by-side table: hypothesis, metrics (with Δ), git diff between the two branches, sample of changed files. Helps decide which sibling to extend.
-
----
-
-### Use case 6 — Record a finding that crosses the DAG
-
-You discover that two distant nodes contradict each other.
-
-```
-/exp-link <a-id> <b-id> contradicts
-```
-
-(Other relations: `extends`, `replicates`.) Both files get a `links:` frontmatter entry pointing at the other. Obsidian graph view shows the cross-edge after refresh.
-
----
-
-### Use case 7 — "Where am I in the graph?"
-
-```
-/exp-status
-```
-
-(With no args, uses current node from git branch.) Prints:
-```
-Current: <id> <slug>  [completed, exp/<id>-<slug>]
-Parent chain (root → here): ...
-Siblings: ...
-Unfinished children: ...
-Cross-links: ...
-Git: branch state, unpushed count
-Next: /exp-plan or /exp-branch
-```
-
-Or inspect any node: `/exp-status <node-id>`.
-
----
-
-### Use case 8 — Resume a node from earlier
-
-```bash
-git checkout exp/<id>-<slug>             # back on that experiment's code
-/exp-status                              # remind yourself where it sits
-/exp-record ...                          # add more results, or
-/exp-branch "next step..." --with-branch # fork from here
-```
-
-`current node` is always derived from the current git branch — no flag needed.
-
----
-
-### Use case 9 — Cheatsheet anytime
-
-```
-/exp-help
-```
-
-Prints the full reference card inline.
-
----
-
-## Architecture (1-minute version)
-
-```
-my-project/                              # your code repo (outer git)
-├── .git/                                # outer history — your code commits
-├── .gitignore                           # includes:  experiments/
-├── src/
-└── experiments/                         # vault (NESTED git repo)
-    ├── .git/                            # vault history — 1 commit per /exp-* op
-    ├── .obsidian/app.json
-    ├── INDEX.md                         # auto-maintained root list
-    ├── nodes/
-    │   └── 2026-05-<id>-<slug>.md       # one experiment = one file
-    └── attachments/                     # plots, csv, screenshots
-```
-
-**Why nested git for the vault?** Because if vault files lived in the outer repo, every code branch would diverge in vault content too. `/exp-link a b` would fail when `a` and `b` were created on different branches. Nested git makes the vault *global* (one history, all nodes visible from any code branch).
-
-**Code ↔ node mapping**: branch `exp/<id>-<slug>` ⇔ node file `YYYY-MM-<id>-<slug>.md` ⇔ wikilink target `[[YYYY-MM-<id>-<slug>]]`. Knowing one, you can derive the others.
-
-**4-step skill discipline (every state-changing op):**
-1. **Inspect** — read git state + current node + args
-2. **Preview** — print exactly what will change (file + branch + commit msg)
-3. **Confirm** — user types `y` (HITL)
-4. **Execute atomic** — single transaction, rollback if any sub-step fails
-
-→ Agent never guesses your slug, hypothesis wording, or which parent. Always asks first.
-
-For the full case study (11-node 5-hop DAG built from the Ctrl-World paper), see [`docs/CASE-STUDY-ctrl-world.md`](docs/CASE-STUDY-ctrl-world.md).
-
----
-
-## Server deployment
-
-### Install on the server
-
-```bash
-ssh user@server
-curl -fsSL https://raw.githubusercontent.com/triquang26/research-infra/main/install.sh | bash
-```
-
-That's it. Then in any project dir on the server, run Claude Code → `/exp-init` → start working.
-
-### Caveat: server git identity
-
-If the server's git has no `user.email` / `user.name`, vault commits will fail. Quick fix:
-
-```bash
-git config --global user.email "you@example.com"
-git config --global user.name "Your Name"
-```
-
-`/exp-init` will inherit these into the nested vault repo.
-
----
-
-## Sync vault back to local Obsidian
-
-The vault is its own git repo — give it its own GitHub remote (the easiest path).
-
-### Option A — vault has its own GitHub repo (recommended)
-
-**One-time setup on server:**
-
-```bash
-# create empty GitHub repo "my-project-vault" first (private)
-cd ~/my-project/experiments
-git remote add origin git@github.com:USER/my-project-vault.git
-git push -u origin main
-```
-
-**Auto-push after every vault commit** (optional, adds to vault hooks):
-
-```bash
-cat > ~/my-project/experiments/.git/hooks/post-commit <<'EOF'
-#!/usr/bin/env bash
-git push origin main --quiet 2>/dev/null || true
-EOF
-chmod +x ~/my-project/experiments/.git/hooks/post-commit
-```
-
-**On local machine:**
-
-```bash
-git clone git@github.com:USER/my-project-vault.git ~/vaults/my-project
-open -a Obsidian ~/vaults/my-project           # macOS
-# or just: open the folder as a vault in Obsidian
-```
-
-To refresh, just `git pull` in `~/vaults/my-project` (or wire a 1-line LaunchAgent/cron).
-
-### Option B — rsync (no GitHub needed)
-
-On local machine, periodic pull:
-```bash
-rsync -avz --delete \
-  user@server:~/my-project/experiments/ \
-  ~/vaults/my-project/
-```
-
-Run on demand or via `cron` / `launchd` / `fswatch`.
-
-### Option C — SSHFS (live mount)
-
-```bash
-brew install macfuse sshfs                     # macOS one-time
-mkdir -p ~/mnt/my-project-vault
-sshfs user@server:~/my-project/experiments ~/mnt/my-project-vault
-open -a Obsidian ~/mnt/my-project-vault
-```
-
-Slowest interaction but always live. Disconnect on idle.
+Deeper rationale: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ---
 
 ## Skill reference
 
-What each skill expects you to provide vs auto-detects from context.
+| Skill | What it does | One-line usage |
+|---|---|---|
+| `/exp-init` | Bootstrap `experiments/` vault (nested git) | `/exp-init` (once per project) |
+| `/exp-publish` | Create vault GitHub repo + auto-push hook | `/exp-publish` (once per project, needs `gh`) |
+| `/exp-new` | Create ROOT node (no parent) | `/exp-new "<hyp>" --slug=... --with-branch` |
+| `/exp-attach` | Promote idea node → active by creating branch | `/exp-attach <id>` |
+| `/exp-branch` | Create CHILD of current (or `--parent=<id>`) | `/exp-branch "<hyp>" --slug=... --with-branch` |
+| `/exp-record` | Auto-detect + record results into current node | `/exp-record` (auto) or `/exp-record acc=0.91 ...` |
+| `/exp-status` | 1-node neighborhood (current + parents + siblings) | `/exp-status [<id>]` |
+| `/exp-traverse` | Whole-DAG view in any direction | `/exp-traverse [--from=<id>] [--direction=up\|down\|both\|siblings\|path\|orphans]` |
+| `/exp-plan` | Draft k=2-3 candidate hypotheses | `/exp-plan [k=3]` |
+| `/exp-link` | Cross-edge between 2 nodes | `/exp-link <a> <b> extends\|contradicts\|replicates` |
+| `/exp-compare` | Side-by-side metrics + git diff | `/exp-compare <a> <b>` |
+| `/exp-help` | Inline cheatsheet | `/exp-help` |
 
-| Skill | What it does | You provide | Auto-detected | HITL? |
-|---|---|---|---|---|
-| `/exp-init` | Bootstrap `experiments/` vault as nested git repo | (nothing) | outer repo root, `origin` URL (cached as `github-repo` on every new node), user.email/name (inherited) | yes |
-| `/exp-publish` | Create vault GitHub repo + push + install auto-push hook (one-shot sync setup) | (nothing) — optional `--name=<repo>`, `--public`, `--org=<org>` | gh user, default repo name `<project>-vault`, private | yes |
-| `/exp-new` | Create ROOT node (no parent) | hypothesis text (required) | id (random), slug (proposed from hypothesis; you can override `--slug=`), `github-repo` URL | yes |
-| `/exp-new --with-branch` | …also create the code branch | hypothesis, optional `--from=<base>` (default `main`) | base branch fallback if `main` doesn't exist | yes |
-| `/exp-attach <id>` | Promote idea → active by creating its git branch | node id (required), optional `--from=<base>` | slug from node, current `github-repo` URL (backfilled if missing) | yes |
-| `/exp-branch` | Create CHILD of current (or `--parent=<id>`) node | child hypothesis (required), optional `--slug`, `--parent=<id>` (default: current) | parent id from current git branch, parent's branch (for `--with-branch`), `github-repo` URL | yes |
-| `/exp-record` | Fill Method/Results/Conclusion + metrics | `k=v` metric pairs and/or Method/Conclusion text (or `propose` to let Claude draft) | current node from git branch, current commit SHA, today's date | yes |
-| `/exp-status [id]` | Read-only **1-node** neighborhood view | optional node id (default: current) | current node, parent chain, siblings, children, links, git state | no |
-| `/exp-traverse` | Read-only **whole-DAG** traversal in any direction | optional `--from`, `--to`, `--direction=down\|up\|both\|siblings\|neighborhood\|path\|orphans\|all`, `--depth`, `--filter`, `--format=tree\|yaml` | derives children, conclusion verdict (PASS/FAIL/PARTIAL), full cross-link map | no |
-| `/exp-plan [k=3]` | Draft k candidate child hypotheses | optional `k`, optional `--node=<id>` | current node + 2 ancestors as context for drafting | yes (on promote only) |
-| `/exp-link <a> <b> <rel>` | Add cross-edge between 2 nodes | 2 node ids + relation (`extends` / `contradicts` / `replicates`) | wiki names from ids | yes |
-| `/exp-compare <a> <b>` | Side-by-side comparison + git diff | 2 node ids | metrics, branches, git diff between the two branches | no |
-| `/exp-help` | Inline cheatsheet | (nothing) | — | no |
+Full per-skill arg + auto-detect details: [USAGE.md](USAGE.md#info-each-skill-needs).
 
-**Auto-detection details:**
-- `github-repo` URL: `/exp-init` and every node-creating skill (`/exp-new`, `/exp-branch`, `/exp-attach`) run `git remote get-url origin` in the outer code repo. The result is stored in the node's frontmatter as `github-repo:`. If no `origin` remote, the field is `null` — set the remote later and use `/exp-attach` to backfill, or edit the node manually.
-- **current node**: derived from current git branch. If branch matches `exp/<6char>-<slug>`, the corresponding node file is the current node. If you're on `main` or any non-`exp/` branch, skills that need a current node will hard-fail with "not on an exp/ branch — pass --node=<id> or git checkout the right branch."
-- **id**: random 6-char base36, checked unique within the vault before write.
-- **slug**: proposed by Claude from the hypothesis text (2–4 keywords, kebab-case, ≤30 chars). You can override with `--slug=` and edit in the Preview step before confirming.
+---
 
-**You always provide:** the hypothesis (or metrics for `/exp-record`), explicit args like `--with-branch` / `--parent=<id>` / `--slug=...` when needed, and the final `y` to confirm.
+## Sync vault to laptop Obsidian
+
+Default & recommended: **Option A — vault as its own GitHub repo** (set up automatically by `/exp-publish`):
+
+**Server**: vault commits auto-push (via post-commit hook installed by `/exp-publish`).
+
+**Laptop**:
+```bash
+git clone git@github.com:USER/PROJECT-vault.git ~/vaults/PROJECT
+open -a Obsidian ~/vaults/PROJECT
+```
+
+Auto-pull every 30 s via LaunchAgent: see [docs/SYNC.md](docs/SYNC.md).
+
+Alternatives (rsync, SSHFS) also in [docs/SYNC.md](docs/SYNC.md).
 
 ---
 
@@ -537,24 +257,16 @@ What each skill expects you to provide vs auto-detects from context.
 
 | Symptom | Fix |
 |---|---|
-| `no vault found` | Run `/exp-init` in your project root |
+| `no vault found` | `/exp-init` in your project root |
 | `PyYAML required` | `python3 -m pip install --user pyyaml` |
-| `not on an exp/ branch` (record/status) | `git checkout exp/<id>-<slug>` or pass `--node=<id>` |
-| `branch X already exists` | Pick a different slug, or `git branch -d X` first |
-| `working tree has uncommitted changes` | Commit or stash your code changes first |
-| Obsidian shows empty vault | Folder is `experiments/` (visible). In Obsidian: "Open folder as vault" → point at `<repo>/experiments/`. Use `Cmd+R` to reload. `Cmd+G` for graph view. |
-| Vault commit fails: `user.email not set` | `git config --global user.email "..."` then re-run skill |
-| Both `.experiments/` and `experiments/` exist | Skill prefers visible `experiments/`. Remove the unused one. |
-
----
-
-## Architecture decisions (short version)
-
-- **Why bash + Python instead of pure TS / Rust?** Skills run inside Claude Code via the Bash tool. Bash + a 100-line Python helper for YAML is enough; no compile step, no install fuss.
-- **Why nested vault repo?** See Architecture section above. Single source of truth across all code branches.
-- **Why loose git coupling (idea / active)?** So you can brainstorm cheaply (`/exp-new --idea`) without polluting branch list.
-- **Why no MCP server?** Vault stays small enough (typically < 200 nodes) that grep + bash + the in-skill Python is faster than spinning up a server. If you outgrow this, ship a tiny MCP later — the skills are the stable API.
-- **Why HITL on every op?** Atomic ≠ safe. Confirming the preview catches typos in slugs and bad parent picks before they hit disk.
+| `not on an exp/ branch` | `git checkout exp/<id>-<slug>` or pass `--node=<id>` |
+| `branch X already exists` | Pick different slug or `git branch -d X` first |
+| `working tree has uncommitted changes` | Commit / stash code changes first |
+| Obsidian shows empty vault | Open `<project>/experiments/` as vault. `Cmd+R` reload. `Cmd+G` for graph. |
+| Vault commit: `user.email not set` | `git config --global user.email "..."` |
+| `gh` not installed (for /exp-publish) | `brew install gh && gh auth login` |
+| `github-repo: null` in old nodes | Run `/exp-attach <id>` to backfill |
+| Claude executed without confirming | Use CLAUDE.md template + `--dry-run` — see [USAGE.md](USAGE.md#force-confirm-4-layers) |
 
 ---
 
@@ -562,29 +274,19 @@ What each skill expects you to provide vs auto-detects from context.
 
 ```
 research-infra/
-├── README.md                       # this file
+├── README.md                       # this file — install + tutorial + reference
+├── USAGE.md                        # 👈 daily driving guide
+├── CLAUDE.md.template              # drop into any project root for stricter HITL
 ├── install.sh                      # one-command installer
-├── skills/                         # the 10 skills (symlinked into ~/.claude/skills/)
-│   ├── _shared/
-│   │   ├── lib.sh                  # bash helpers (gen_id, find_vault, atomic ops)
-│   │   ├── fm.py                   # frontmatter helper (get/set/append-list/render)
-│   │   └── node_template.md        # markdown template
-│   ├── exp-init/SKILL.md
-│   ├── exp-new/SKILL.md
-│   ├── exp-attach/SKILL.md
-│   ├── exp-branch/SKILL.md
-│   ├── exp-record/SKILL.md
-│   ├── exp-status/SKILL.md
-│   ├── exp-plan/SKILL.md
-│   ├── exp-link/SKILL.md
-│   ├── exp-compare/SKILL.md
-│   └── exp-help/SKILL.md
+├── skills/
+│   ├── _shared/{lib.sh, fm.py, node_template.md}
+│   └── exp-{init,publish,new,attach,branch,record,status,traverse,plan,link,compare,help}/SKILL.md
 ├── docs/
-│   ├── ARCHITECTURE.md             # deeper architectural rationale
+│   ├── ARCHITECTURE.md             # why nested vault, design rationale
 │   ├── SYNC.md                     # full sync-to-Obsidian guide
-│   └── CASE-STUDY-ctrl-world.md    # worked example: 11 nodes, 5 hop, Ctrl-World paper
+│   └── CASE-STUDY-ctrl-world.md    # worked example: 11 nodes, 5 hops
 └── examples/
-    └── ctrl-world-build.sh         # script that reproduces the case study end-to-end
+    └── ctrl-world-build.sh         # reproduces the case study end-to-end
 ```
 
 ---
@@ -595,5 +297,4 @@ MIT.
 
 ## Credits
 
-- Architecture inspired by **Flywheel** by Paradigma — [flywheel.paradigma.inc](https://flywheel.paradigma.inc).
-- Built with Claude Code.
+Architecture inspired by **Flywheel** by Paradigma. Built with Claude Code.
