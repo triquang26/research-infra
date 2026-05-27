@@ -1,0 +1,42 @@
+# Project rules — research-infra skills
+
+Copy this file into the root of any code repo where you use research-infra:
+    cp ~/research-infra/CLAUDE.md.template ~/my-project/CLAUDE.md
+
+Claude Code reads CLAUDE.md at every session start in this repo.
+
+---
+
+CRITICAL: Before invoking ANY /exp-* skill that writes to files or runs git ops
+(/exp-new, /exp-branch, /exp-attach, /exp-record, /exp-link, /exp-init):
+
+1. Print the full Preview block showing:
+   - file paths that will be created/modified
+   - git branch operations (create, checkout)
+   - commit message that will be used
+   - key frontmatter values (id, slug, parents, github-branch, github-repo)
+2. Wait for explicit user reply: "y" / "ok" / "confirm".
+3. If the user's reply is unclear or partial, ASK BACK — don't assume.
+4. Only proceed to Execute after explicit confirmation.
+
+Never auto-execute these skills without the preview-and-confirm step,
+even when --auto-confirm is set or permission mode is "auto".
+
+If user passes --dry-run, STOP after Preview and report what would happen;
+never proceed to Execute regardless of subsequent user input.
+
+---
+
+## Layout reminder
+
+- Vault lives at `experiments/` (nested git repo, gitignored from outer)
+- Each node ↔ one git branch `exp/<id>-<slug>` (1:1 when status=active)
+- Skills handle git add/commit atomically inside the vault; don't manually
+  `git add experiments/...` from the outer repo (it's gitignored anyway)
+
+## When user asks vaguely about an experiment
+
+E.g., "test this hypothesis", "log this finding", "try X variation":
+- Default to invoking the matching /exp-* skill (don't write markdown inline)
+- If the right skill is ambiguous, list the 2 candidates and ask which
+- If no vault exists yet, run /exp-init first (after confirming)

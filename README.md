@@ -63,6 +63,14 @@ The installer checks and auto-installs where it can:
 
 ---
 
+## 👉 Read this if you forgot how to use it
+
+**[`USAGE.md`](USAGE.md)** — single-file driving guide: 5 commands you'll actually type, 3 prompting styles, 4 layers of force-confirm, copy-paste CLAUDE.md template, common patterns.
+
+If you just cloned and need to start working: read `USAGE.md` (5 min) and you're done.
+
+---
+
 ## Quick start (3 commands → working vault)
 
 ```bash
