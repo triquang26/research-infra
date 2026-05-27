@@ -85,6 +85,165 @@ Open `experiments/` in Obsidian → graph view shows your DAG.
 
 ---
 
+## Tutorial — End-to-end on a real paper repo (Ctrl-World example)
+
+Concrete walkthrough: implementing the [Ctrl-World](https://github.com/Yanjiang-Guo/ctrl-world) paper on an SSH server, viewing the experiment DAG on your laptop in Obsidian. **Two GitHub repos** are involved: one for the code, one for the vault. This is the recommended setup.
+
+### Why two repos?
+
+| Repo | Holds | Audience | Visibility |
+|---|---|---|---|
+| **Code** (e.g. `triquang26/ctrl-world`) | implementation, branches `exp/<id>-<slug>` | you / collaborators / upstream PRs | usually public |
+| **Vault** (e.g. `triquang26/ctrl-world-vault`) | DAG notes, hypotheses, results, links | you (+ maybe team) | usually private |
+
+Separation means:
+- PRs back upstream don't leak your messy `experiments/` folder
+- Code reviewers see code diffs only
+- Vault can be private even when code is public
+- Vault commits (1 per skill op) don't bloat code branch history
+
+### Step 1 — Server: fork the paper repo
+
+```bash
+ssh user@server
+gh repo fork Yanjiang-Guo/ctrl-world --clone=true     # creates triquang26/ctrl-world
+cd ctrl-world
+```
+
+(If not using `gh`: `git clone <paper-url>` then push to a new GitHub repo you own.)
+
+### Step 2 — Server: install research-infra
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/triquang26/research-infra/main/install.sh | bash
+```
+
+### Step 3 — Server: bootstrap the vault
+
+```bash
+cd ~/ctrl-world           # still in the code repo
+claude                    # start Claude Code
+```
+
+Inside Claude Code:
+```
+/exp-init
+```
+
+This creates:
+- `experiments/` (nested git repo with its own `.git/`)
+- Appends `experiments/` to outer `.gitignore` so code branches don't see vault changes
+- Commits the gitignore update on outer `main`
+
+### Step 4 — Server: create the vault GitHub remote (one-time)
+
+```bash
+gh repo create triquang26/ctrl-world-vault --private --confirm
+cd experiments
+git remote add origin git@github.com:triquang26/ctrl-world-vault.git
+git push -u origin main
+```
+
+### Step 5 — Server: auto-push hook (so every vault commit syncs)
+
+```bash
+cat >.git/hooks/post-commit <<'EOF'
+#!/usr/bin/env bash
+git push origin main --quiet 2>/dev/null || true
+EOF
+chmod +x .git/hooks/post-commit
+cd ..                      # back to code repo root
+```
+
+Now every `/exp-*` op that commits to the vault will auto-push to GitHub.
+
+### Step 6 — Server: start experimenting
+
+```
+/exp-new "Reproduce Ctrl-World on DROID 95k traj" --slug=baseline --with-branch
+```
+
+Claude previews, you confirm. This:
+- Creates `experiments/nodes/2026-05-<id>-baseline.md`
+- Creates outer code branch `exp/<id>-baseline` from `main`, checks it out
+- Vault commit → auto-pushed to `ctrl-world-vault`
+- Outer branch has no commits yet (you haven't changed code)
+
+Now edit code on the server (`src/model.py`, etc.), train, eval, then:
+```
+/exp-record coherent_seconds=18.5 policy_uplift_pct=41.2
+```
+
+Method / Results / Conclusion get filled (you write or let Claude propose), status flips to `completed`. Vault commit → auto-pushed.
+
+### Step 7 — Server: push code branches when ready (manual)
+
+```bash
+git add src/...
+git commit -m "exp(<id>): baseline implementation"
+git push origin exp/<id>-baseline
+```
+
+Code branches push **manually** — different cadence from vault.
+
+### Step 8 — Server: branch an ablation
+
+```bash
+git checkout exp/<id>-baseline   # already there, just being explicit
+```
+```
+/exp-branch "Drop memory retrieval (k=0)" --slug=ablate-memory-k0 --with-branch
+```
+
+Claude reads current node, creates child node, creates branch `exp/<child-id>-ablate-memory-k0` forked from `exp/<id>-baseline`, checks it out. Vault commit → auto-pushed.
+
+### Step 9 — Laptop: clone vault, open in Obsidian
+
+```bash
+git clone git@github.com:triquang26/ctrl-world-vault.git ~/vaults/ctrl-world
+open -a Obsidian ~/vaults/ctrl-world
+```
+
+Refresh manually with `git pull`, or wire a 30-second LaunchAgent (template in [`docs/SYNC.md`](docs/SYNC.md#option-a--vault-has-its-own-github-repo-recommended)).
+
+### Step 10 — Laptop: optionally clone code for review
+
+```bash
+git clone git@github.com:triquang26/ctrl-world.git ~/code/ctrl-world
+git -C ~/code/ctrl-world checkout exp/<id>-baseline   # see the experiment's code
+```
+
+Vault on laptop shows what / why / results. Code repo shows how. PR to upstream paper repo from `main` of your fork — vault never leaks.
+
+### The picture
+
+```
+SERVER ──────────────────────► GITHUB ◄─────────── LAPTOP
+
+~/ctrl-world/                  triquang26/ctrl-world          ~/code/ctrl-world/  (optional)
+├── .git/  ─── push exp/* ──►    main                          for code review
+├── .gitignore  experiments/     exp/abc123-baseline
+├── src/                         exp/def456-ablate-memory-k0
+└── experiments/  ── auto ──►  triquang26/ctrl-world-vault    ~/vaults/ctrl-world/
+    ├── .git/   post-commit       main (all vault commits)     git pull every 30s
+    ├── nodes/                                                  open -a Obsidian
+    └── INDEX.md
+```
+
+| Action | Code repo (`ctrl-world`) | Vault repo (`ctrl-world-vault`) |
+|---|---|---|
+| Branches | `main` + `exp/<id>-<slug>` | `main` only |
+| Push | manual (`git push origin exp/...`) | auto via post-commit hook |
+| Files | source code | markdown nodes + INDEX |
+| Audience | you / collaborators / PR upstream | you (+ team) |
+| View | IDE / `gh pr view` | Obsidian on laptop |
+
+### Want a single repo instead?
+
+You can — drop the nested-git approach and let vault files live on whichever code branch you're on. Trade-off: `/exp-link` and `/exp-compare` across branches will fail (file not visible). See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md#why-nested-git-for-the-vault) for why we chose nested. For solo projects with no cross-branch linking, single-repo can work — but you'll have to modify the skills.
+
+---
+
 ## Use cases (copy-paste ready)
 
 ### Use case 1 — Start a brand-new research thread
