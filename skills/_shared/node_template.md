@@ -7,6 +7,7 @@ hypothesis: |
   {{hypothesis}}
 parents: {{parents_yaml}}
 links: []
+github-repo: {{repo_url}}
 github-branch: {{branch}}
 github-commit: null
 date-created: {{today}}

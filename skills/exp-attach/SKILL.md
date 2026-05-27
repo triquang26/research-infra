@@ -75,6 +75,12 @@ exp_fm_set "$FILE" status active
 exp_fm_set "$FILE" github-branch "$BRANCH"
 exp_fm_set "$FILE" date-started "$(exp_today)"
 
+# Backfill github-repo if missing (older node created before this field existed)
+CUR_REPO=$(exp_fm_get "$FILE" github-repo)
+if [[ -z "$CUR_REPO" || "$CUR_REPO" == "null" ]]; then
+  exp_fm_set "$FILE" github-repo "$(exp_outer_repo_url)"
+fi
+
 exp_vault_commit "$VAULT" "exp(${ID}): attach branch — ${SLUG}" "$FILE"
 ```
 

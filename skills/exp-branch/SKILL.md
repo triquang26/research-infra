@@ -91,12 +91,14 @@ if [[ "$WITH_BRANCH" == "true" ]]; then
   STATUS="active"; BRANCH_FIELD="$CHILD_BRANCH"; DATE_STARTED="$(exp_today)"
 fi
 
+REPO_URL=$(exp_outer_repo_url)
 exp_render_node \
   "id=$CHILD_ID" \
   "slug=$CHILD_SLUG" \
   "hypothesis=$HYP" \
   "parents_yaml=[\"[[${PARENT_WIKI}]]\"]" \
   "parents_body=- [[${PARENT_WIKI}]]" \
+  "repo_url=$REPO_URL" \
   "branch=$BRANCH_FIELD" \
   "status=$STATUS" \
   "today=$(exp_today)" \

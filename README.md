@@ -487,18 +487,29 @@ Slowest interaction but always live. Disconnect on idle.
 
 ## Skill reference
 
-| Skill | What it does | HITL? |
-|---|---|---|
-| `/exp-init` | Bootstrap `experiments/` vault as nested git repo | yes |
-| `/exp-new` | Create ROOT node (no parent). `--with-branch` optional. | yes |
-| `/exp-attach` | Promote an idea node → active by creating its git branch | yes |
-| `/exp-branch` | Create CHILD of current (or `--parent=<id>`) node | yes |
-| `/exp-record` | Fill Method/Results/Conclusion + metrics, mark completed | yes |
-| `/exp-status` | Read-only: current + parents + siblings + children + links | no (read-only) |
-| `/exp-plan` | Draft k=2-3 candidate child hypotheses, pick 1 to promote | yes (on promote) |
-| `/exp-link` | Add cross-edge: extends / contradicts / replicates | yes |
-| `/exp-compare` | Side-by-side 2 nodes + git diff branches | no (read-only) |
-| `/exp-help` | Inline cheatsheet | no (read-only) |
+What each skill expects you to provide vs auto-detects from context.
+
+| Skill | What it does | You provide | Auto-detected | HITL? |
+|---|---|---|---|---|
+| `/exp-init` | Bootstrap `experiments/` vault as nested git repo | (nothing) | outer repo root, `origin` URL (cached as `github-repo` on every new node), user.email/name (inherited) | yes |
+| `/exp-new` | Create ROOT node (no parent) | hypothesis text (required) | id (random), slug (proposed from hypothesis; you can override `--slug=`), `github-repo` URL | yes |
+| `/exp-new --with-branch` | …also create the code branch | hypothesis, optional `--from=<base>` (default `main`) | base branch fallback if `main` doesn't exist | yes |
+| `/exp-attach <id>` | Promote idea → active by creating its git branch | node id (required), optional `--from=<base>` | slug from node, current `github-repo` URL (backfilled if missing) | yes |
+| `/exp-branch` | Create CHILD of current (or `--parent=<id>`) node | child hypothesis (required), optional `--slug`, `--parent=<id>` (default: current) | parent id from current git branch, parent's branch (for `--with-branch`), `github-repo` URL | yes |
+| `/exp-record` | Fill Method/Results/Conclusion + metrics | `k=v` metric pairs and/or Method/Conclusion text (or `propose` to let Claude draft) | current node from git branch, current commit SHA, today's date | yes |
+| `/exp-status [id]` | Read-only neighborhood view | optional node id (default: current) | current node, parent chain, siblings, children, links, git state | no |
+| `/exp-plan [k=3]` | Draft k candidate child hypotheses | optional `k`, optional `--node=<id>` | current node + 2 ancestors as context for drafting | yes (on promote only) |
+| `/exp-link <a> <b> <rel>` | Add cross-edge between 2 nodes | 2 node ids + relation (`extends` / `contradicts` / `replicates`) | wiki names from ids | yes |
+| `/exp-compare <a> <b>` | Side-by-side comparison + git diff | 2 node ids | metrics, branches, git diff between the two branches | no |
+| `/exp-help` | Inline cheatsheet | (nothing) | — | no |
+
+**Auto-detection details:**
+- `github-repo` URL: `/exp-init` and every node-creating skill (`/exp-new`, `/exp-branch`, `/exp-attach`) run `git remote get-url origin` in the outer code repo. The result is stored in the node's frontmatter as `github-repo:`. If no `origin` remote, the field is `null` — set the remote later and use `/exp-attach` to backfill, or edit the node manually.
+- **current node**: derived from current git branch. If branch matches `exp/<6char>-<slug>`, the corresponding node file is the current node. If you're on `main` or any non-`exp/` branch, skills that need a current node will hard-fail with "not on an exp/ branch — pass --node=<id> or git checkout the right branch."
+- **id**: random 6-char base36, checked unique within the vault before write.
+- **slug**: proposed by Claude from the hypothesis text (2–4 keywords, kebab-case, ≤30 chars). You can override with `--slug=` and edit in the Preview step before confirming.
+
+**You always provide:** the hypothesis (or metrics for `/exp-record`), explicit args like `--with-branch` / `--parent=<id>` / `--slug=...` when needed, and the final `y` to confirm.
 
 ---
 

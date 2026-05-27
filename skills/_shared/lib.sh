@@ -97,6 +97,18 @@ exp_current_commit() {
   git rev-parse HEAD 2>/dev/null || echo ""
 }
 
+# Outer repo's `origin` remote URL (e.g., git@github.com:user/repo.git).
+# Echoes URL or "null" if none. Run from anywhere inside the outer repo.
+exp_outer_repo_url() {
+  local url
+  url=$(git remote get-url origin 2>/dev/null || true)
+  if [[ -z "$url" ]]; then
+    echo "null"
+  else
+    echo "$url"
+  fi
+}
+
 # ---------- node lookup ----------
 
 # Find node file by id. Echoes path or empty.
