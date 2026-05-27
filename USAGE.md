@@ -19,6 +19,7 @@
 
 ```
 /exp-init                                          # once per project
+/exp-publish                                       # once: wire vault → GitHub auto-sync
 /exp-new "<hyp>" --slug=... --with-branch          # new root
 /exp-branch "<hyp>" --slug=... --with-branch       # new child of current
 /exp-record k=v k=v                                # ghi kết quả vào current
@@ -69,6 +70,7 @@ You answer, then Claude proceeds with the standard Preview → Confirm flow.
 | Skill | You must give | Optional | Auto-detected |
 |---|---|---|---|
 | `/exp-init` | (nothing) | — | repo root, `origin` URL, git user.email/name |
+| `/exp-publish` | (nothing) | `--name=<repo>`, `--public`, `--org=<org>` | project name, gh user, default repo `<project>-vault` |
 | `/exp-new` | hypothesis | `--slug=<slug>`, `--with-branch`, `--from=<base>` | id, slug (proposed), `github-repo` |
 | `/exp-attach <id>` | node id | `--from=<base>` | slug, github-repo backfill |
 | `/exp-branch` | hypothesis | `--parent=<id>`, `--slug`, `--with-branch` | parent from current branch, parent's branch |

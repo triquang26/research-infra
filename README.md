@@ -143,29 +143,39 @@ This creates:
 - Appends `experiments/` to outer `.gitignore` so code branches don't see vault changes
 - Commits the gitignore update on outer `main`
 
-### Step 4 — Server: create the vault GitHub remote (one-time)
+### Step 4 — Server: publish vault to GitHub (one command)
+
+```
+/exp-publish
+```
+
+This does the GitHub setup + auto-push hook in one go:
+- Creates `triquang26/ctrl-world-vault` on GitHub (private by default)
+- Adds it as the vault's `origin` remote and pushes
+- Installs a post-commit hook so every subsequent `/exp-*` vault commit auto-pushes
+
+Requires `gh` CLI installed + authenticated (`gh auth status`). Override the repo name with `--name=foo`, make it public with `--public`, or target an org with `--org=myorg`.
+
+After this, every `/exp-new`, `/exp-branch`, `/exp-record`, `/exp-link` writes to the vault → vault commits → auto-pushed to GitHub. No more manual `git push` for vault changes.
+
+<details>
+<summary>Manual equivalent (if you'd rather not use the skill)</summary>
 
 ```bash
 gh repo create triquang26/ctrl-world-vault --private --confirm
 cd experiments
 git remote add origin git@github.com:triquang26/ctrl-world-vault.git
 git push -u origin main
-```
-
-### Step 5 — Server: auto-push hook (so every vault commit syncs)
-
-```bash
 cat >.git/hooks/post-commit <<'EOF'
 #!/usr/bin/env bash
 git push origin main --quiet 2>/dev/null || true
 EOF
 chmod +x .git/hooks/post-commit
-cd ..                      # back to code repo root
+cd ..
 ```
+</details>
 
-Now every `/exp-*` op that commits to the vault will auto-push to GitHub.
-
-### Step 6 — Server: start experimenting
+### Step 5 — Server: start experimenting
 
 ```
 /exp-new "Reproduce Ctrl-World on DROID 95k traj" --slug=baseline --with-branch
@@ -184,7 +194,7 @@ Now edit code on the server (`src/model.py`, etc.), train, eval, then:
 
 Method / Results / Conclusion get filled (you write or let Claude propose), status flips to `completed`. Vault commit → auto-pushed.
 
-### Step 7 — Server: push code branches when ready (manual)
+### Step 6 — Server: push code branches when ready (manual)
 
 ```bash
 git add src/...
@@ -194,7 +204,7 @@ git push origin exp/<id>-baseline
 
 Code branches push **manually** — different cadence from vault.
 
-### Step 8 — Server: branch an ablation
+### Step 7 — Server: branch an ablation
 
 ```bash
 git checkout exp/<id>-baseline   # already there, just being explicit
@@ -205,7 +215,7 @@ git checkout exp/<id>-baseline   # already there, just being explicit
 
 Claude reads current node, creates child node, creates branch `exp/<child-id>-ablate-memory-k0` forked from `exp/<id>-baseline`, checks it out. Vault commit → auto-pushed.
 
-### Step 9 — Laptop: clone vault, open in Obsidian
+### Step 8 — Laptop: clone vault, open in Obsidian
 
 ```bash
 git clone git@github.com:triquang26/ctrl-world-vault.git ~/vaults/ctrl-world
@@ -214,7 +224,7 @@ open -a Obsidian ~/vaults/ctrl-world
 
 Refresh manually with `git pull`, or wire a 30-second LaunchAgent (template in [`docs/SYNC.md`](docs/SYNC.md#option-a--vault-has-its-own-github-repo-recommended)).
 
-### Step 10 — Laptop: optionally clone code for review
+### Step 9 — Laptop: optionally clone code for review
 
 ```bash
 git clone git@github.com:triquang26/ctrl-world.git ~/code/ctrl-world
@@ -500,6 +510,7 @@ What each skill expects you to provide vs auto-detects from context.
 | Skill | What it does | You provide | Auto-detected | HITL? |
 |---|---|---|---|---|
 | `/exp-init` | Bootstrap `experiments/` vault as nested git repo | (nothing) | outer repo root, `origin` URL (cached as `github-repo` on every new node), user.email/name (inherited) | yes |
+| `/exp-publish` | Create vault GitHub repo + push + install auto-push hook (one-shot sync setup) | (nothing) — optional `--name=<repo>`, `--public`, `--org=<org>` | gh user, default repo name `<project>-vault`, private | yes |
 | `/exp-new` | Create ROOT node (no parent) | hypothesis text (required) | id (random), slug (proposed from hypothesis; you can override `--slug=`), `github-repo` URL | yes |
 | `/exp-new --with-branch` | …also create the code branch | hypothesis, optional `--from=<base>` (default `main`) | base branch fallback if `main` doesn't exist | yes |
 | `/exp-attach <id>` | Promote idea → active by creating its git branch | node id (required), optional `--from=<base>` | slug from node, current `github-repo` URL (backfilled if missing) | yes |

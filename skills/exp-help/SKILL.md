@@ -15,6 +15,7 @@ When invoked, print the following block VERBATIM (don't paraphrase, the user wan
 
 ONE-TIME PER PROJECT
   /exp-init                 Bootstrap experiments/ vault (nested git repo)
+  /exp-publish              Wire vault → GitHub auto-sync (gh CLI required)
 
 CREATE NODES
   /exp-new "<hypothesis>" [--slug=...] [--with-branch]
