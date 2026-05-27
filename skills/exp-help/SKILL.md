@@ -33,8 +33,16 @@ WORK ON A NODE
                                    # → status becomes "completed"
 
 EXPLORE THE GRAPH
-  /exp-status [node-id]            # current node + parent chain + siblings
-                                   # + children + cross-links + git state
+  /exp-status [node-id]            # 1-node neighborhood (current + parents + siblings)
+  /exp-traverse [flags]            # whole-DAG traversal in any direction:
+                                   #   default       = full tree from all roots
+                                   #   --from=X      = subtree under X (down)
+                                   #   --direction=up        = ancestors of X
+                                   #   --direction=both      = lineage + descendants
+                                   #   --direction=siblings  = same-parent peers
+                                   #   --direction=neighborhood
+                                   #   --direction=path --to=Y  = shortest path X↔Y
+                                   #   --direction=orphans   = open threads
   /exp-plan [k=3] [--node=<id>]    # propose k candidate next hypotheses;
                                    # user picks one to promote → /exp-branch
   /exp-compare <a-id> <b-id>       # side-by-side metrics + git diff branches

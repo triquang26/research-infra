@@ -516,7 +516,8 @@ What each skill expects you to provide vs auto-detects from context.
 | `/exp-attach <id>` | Promote idea → active by creating its git branch | node id (required), optional `--from=<base>` | slug from node, current `github-repo` URL (backfilled if missing) | yes |
 | `/exp-branch` | Create CHILD of current (or `--parent=<id>`) node | child hypothesis (required), optional `--slug`, `--parent=<id>` (default: current) | parent id from current git branch, parent's branch (for `--with-branch`), `github-repo` URL | yes |
 | `/exp-record` | Fill Method/Results/Conclusion + metrics | `k=v` metric pairs and/or Method/Conclusion text (or `propose` to let Claude draft) | current node from git branch, current commit SHA, today's date | yes |
-| `/exp-status [id]` | Read-only neighborhood view | optional node id (default: current) | current node, parent chain, siblings, children, links, git state | no |
+| `/exp-status [id]` | Read-only **1-node** neighborhood view | optional node id (default: current) | current node, parent chain, siblings, children, links, git state | no |
+| `/exp-traverse` | Read-only **whole-DAG** traversal in any direction | optional `--from`, `--to`, `--direction=down\|up\|both\|siblings\|neighborhood\|path\|orphans\|all`, `--depth`, `--filter`, `--format=tree\|yaml` | derives children, conclusion verdict (PASS/FAIL/PARTIAL), full cross-link map | no |
 | `/exp-plan [k=3]` | Draft k candidate child hypotheses | optional `k`, optional `--node=<id>` | current node + 2 ancestors as context for drafting | yes (on promote only) |
 | `/exp-link <a> <b> <rel>` | Add cross-edge between 2 nodes | 2 node ids + relation (`extends` / `contradicts` / `replicates`) | wiki names from ids | yes |
 | `/exp-compare <a> <b>` | Side-by-side comparison + git diff | 2 node ids | metrics, branches, git diff between the two branches | no |

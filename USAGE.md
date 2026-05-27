@@ -76,6 +76,7 @@ You answer, then Claude proceeds with the standard Preview → Confirm flow.
 | `/exp-branch` | hypothesis | `--parent=<id>`, `--slug`, `--with-branch` | parent from current branch, parent's branch |
 | `/exp-record` | metric `k=v` and/or text for Method/Conclusion | `--method=...`, `--conclusion=...`, `--node=<id>` | current node from git branch, commit SHA, date |
 | `/exp-status` | — | node id | current node, parents, siblings, children, links |
+| `/exp-traverse` | — | `--from=<id>`, `--to=<id>`, `--direction=down\|up\|both\|siblings\|neighborhood\|path\|orphans\|all`, `--depth=N`, `--filter=open\|pass\|fail`, `--format=tree\|yaml` | full DAG; auto-derives children, verdicts, cross-links |
 | `/exp-plan` | — | `k=3`, `--node=<id>` | ancestor context for drafting |
 | `/exp-link` | `<a-id> <b-id> <relation>` | — | wiki names |
 | `/exp-compare` | `<a-id> <b-id>` | — | metrics, branches, diff |
